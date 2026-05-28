@@ -236,11 +236,19 @@
       border: 1px solid var(--border);
       border-radius: 16px;
       overflow: hidden;
+      position: relative;
+    }
+
+    .result-card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
     }
 
     .result-card-title {
       display: inline-block;
-      margin: 0 0 12px 0;
       padding: 6px 12px;
       background: rgba(79, 70, 229, 0.1);
       color: #4f46e5;
@@ -248,6 +256,30 @@
       font-size: 13px;
       font-weight: 700;
       letter-spacing: -0.02em;
+      margin: 0;
+    }
+
+    .card-copy-btn {
+      flex-shrink: 0;
+      border: 1px solid rgba(79, 70, 229, 0.25);
+      background: rgba(255, 255, 255, 0.8);
+      color: #4f46e5;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .card-copy-btn:hover {
+      background: #4f46e5;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+
+    .card-copy-btn:active {
+      transform: translateY(0);
     }
 
     .result-card-content {
@@ -268,6 +300,17 @@
 
       .result-card {
         padding: 14px;
+      }
+
+      .result-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .card-copy-btn {
+        padding: 8px 14px;
+        font-size: 13px;
+        width: 100%;
       }
     }
 
@@ -358,6 +401,13 @@
         flex-direction: column;
       }
 
+      .result-toolbar > div:last-child {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        width: 100%;
+      }
+
       .result-toolbar button {
         width: 100%;
       }
@@ -446,7 +496,10 @@
             <h2 style="margin:0 0 6px;font-size:18px;letter-spacing:-0.03em;">生成结果</h2>
             <div class="status" id="status">等待输入</div>
           </div>
-          <button class="ghost-btn" id="copyBtn" type="button">复制结果</button>
+          <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button class="ghost-btn" id="copyBtn" type="button">复制结果</button>
+            <button class="ghost-btn" id="regenerateBtn" type="button" style="display: none;">重新生成</button>
+          </div>
         </div>
 
         <div class="result" id="result">
@@ -474,6 +527,7 @@
     const generateBtn = document.getElementById("generateBtn");
     const clearBtn = document.getElementById("clearBtn");
     const copyBtn = document.getElementById("copyBtn");
+    const regenerateBtn = document.getElementById("regenerateBtn");
     const resultEl = document.getElementById("result");
     const statusEl = document.getElementById("status");
 
@@ -512,8 +566,12 @@
         if (titleMatch) {
           var title = titleMatch[0];
           var content = part.slice(titleMatch[0].length).trim();
+          var btnId = "card-copy-" + i;
           html += '<div class="result-card">';
+          html += '<div class="result-card-header">';
           html += '<div class="result-card-title">' + title + '</div>';
+          html += '<button class="card-copy-btn" type="button" data-card-index="' + i + '" id="' + btnId + '">复制</button>';
+          html += '</div>';
           html += '<p class="result-card-content">' + content.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</p>';
           html += '</div>';
         }
@@ -521,6 +579,34 @@
 
       html += '</div>';
       resultEl.innerHTML = html;
+
+      var cardCopyBtns = resultEl.querySelectorAll(".card-copy-btn");
+      for (var i = 0; i < cardCopyBtns.length; i++) {
+        cardCopyBtns[i].addEventListener("click", handleCardCopy);
+      }
+    }
+
+    function handleCardCopy(event) {
+      event.preventDefault();
+      var btn = event.currentTarget;
+      var card = btn.closest(".result-card");
+      var cardContent = card.querySelector(".result-card-content");
+      var cardTitle = card.querySelector(".result-card-title");
+      
+      if (!cardContent) return;
+
+      var text = (cardTitle ? cardTitle.textContent + "\n" : "") + cardContent.textContent;
+
+      navigator.clipboard.writeText(text).then(function() {
+        var originalText = btn.textContent;
+        btn.textContent = "已复制";
+        setTimeout(function() {
+          btn.textContent = originalText;
+        }, 1500);
+      }).catch(function(error) {
+        console.error("复制失败:", error);
+        setStatus("复制失败，请手动选择复制");
+      });
     }
 
     function getFormValues() {
@@ -639,17 +725,19 @@
       setStatus("正在生成，请稍候...");
       resultEl.innerHTML = '<div class="empty"><div><strong>AI 正在生成文案，请稍候<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></strong></div></div>';
 
+      var fullAnswer = "";
+
       try {
         await callDifyStreaming(values, function (chunk) {
-          resultEl.textContent += chunk;
+          fullAnswer += chunk;
         });
-        if (!resultEl.textContent.trim()) {
+        if (!fullAnswer.trim()) {
           setStatus("生成失败");
           setResult("Dify 返回了空内容。\n\n可能原因：\n1. API Key 权限不足\n2. Dify 应用未发布 API 访问\n3. 应用配额已用完\n4. 模型配置有误\n\n请打开浏览器开发者工具 (F12) -> Console 查看详细日志。");
         } else {
-          var rawText = resultEl.textContent;
-          parseAndRenderCards(rawText);
+          parseAndRenderCards(fullAnswer);
           setStatus("生成完成");
+          regenerateBtn.style.display = "inline-block";
         }
       } catch (error) {
         console.error("Dify API 错误:", error);
@@ -664,6 +752,7 @@
     clearBtn.addEventListener("click", function () {
       resultEl.innerHTML = '<div class="empty"><div><strong>你的文案会显示在这里</strong>填写左侧内容后，点击"生成文案"。</div></div>';
       setStatus("等待输入");
+      regenerateBtn.style.display = "none";
     });
 
     copyBtn.addEventListener("click", async function () {
@@ -678,6 +767,43 @@
         setStatus("已复制到剪贴板");
       } catch (error) {
         setStatus("复制失败，请手动选择复制");
+      }
+    });
+
+    regenerateBtn.addEventListener("click", async function () {
+      var values = getFormValues();
+      if (!values.topic) {
+        setStatus("请先输入产品或主题");
+        return;
+      }
+
+      generateBtn.disabled = true;
+      generateBtn.textContent = "生成中...";
+      regenerateBtn.disabled = true;
+      setStatus("正在重新生成，请稍候...");
+      resultEl.innerHTML = '<div class="empty"><div><strong>AI 正在生成文案，请稍候<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></strong></div></div>';
+
+      var fullAnswer = "";
+
+      try {
+        await callDifyStreaming(values, function (chunk) {
+          fullAnswer += chunk;
+        });
+        if (!fullAnswer.trim()) {
+          setStatus("重新生成失败");
+          setResult("Dify 返回了空内容。\n\n可能原因：\n1. API Key 权限不足\n2. Dify 应用未发布 API 访问\n3. 应用配额已用完\n4. 模型配置有误\n\n请打开浏览器开发者工具 (F12) -> Console 查看详细日志。");
+        } else {
+          parseAndRenderCards(fullAnswer);
+          setStatus("重新生成完成");
+        }
+      } catch (error) {
+        console.error("Dify API 错误:", error);
+        setStatus("重新生成失败");
+        setResult("请求失败：\n" + error.message + "\n\n排查建议：\n1. 确认 API Key 是否正确\n2. 确认 Dify 应用已「发布」并开启 API 访问\n3. 如提示 goal 等字段值不合法，请到 Dify 后台将该变量改为「文本」类型或添加对应选项\n4. 确认使用 Live Server 而非 file:// 打开\n5. Agent Chat App 必须使用 streaming 模式");
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = "生成文案";
+        regenerateBtn.disabled = false;
       }
     });
   </script>
