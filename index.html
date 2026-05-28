@@ -220,10 +220,55 @@
     .result {
       flex: 1;
       padding: 20px;
-      white-space: pre-wrap;
       line-height: 1.82;
       font-size: 15px;
       overflow: auto;
+    }
+
+    .result-cards {
+      display: grid;
+      gap: 16px;
+    }
+
+    .result-card {
+      padding: 18px;
+      background: rgba(245, 245, 250, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .result-card-title {
+      display: inline-block;
+      margin: 0 0 12px 0;
+      padding: 6px 12px;
+      background: rgba(79, 70, 229, 0.1);
+      color: #4f46e5;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .result-card-content {
+      margin: 0;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 820px) {
+      .result {
+        padding: 16px;
+      }
+
+      .result-cards {
+        gap: 12px;
+      }
+
+      .result-card {
+        padding: 14px;
+      }
     }
 
     .empty {
@@ -440,6 +485,44 @@
       resultEl.textContent = text;
     }
 
+    function parseAndRenderCards(rawText) {
+      var cardTitles = ["【爆款标题】", "【正文文案】", "【开头钩子】", "【CTA 行动引导】", "【Hashtags】", "【配图/视频建议】"];
+      var hasMatch = false;
+      
+      for (var i = 0; i < cardTitles.length; i++) {
+        if (rawText.indexOf(cardTitles[i]) !== -1) {
+          hasMatch = true;
+          break;
+        }
+      }
+
+      if (!hasMatch) {
+        resultEl.textContent = rawText;
+        return;
+      }
+
+      var html = '<div class="result-cards">';
+      var parts = rawText.split(/(?=【)/);
+
+      for (var i = 0; i < parts.length; i++) {
+        var part = parts[i].trim();
+        if (!part) continue;
+
+        var titleMatch = part.match(/^【([^】]+)】/);
+        if (titleMatch) {
+          var title = titleMatch[0];
+          var content = part.slice(titleMatch[0].length).trim();
+          html += '<div class="result-card">';
+          html += '<div class="result-card-title">' + title + '</div>';
+          html += '<p class="result-card-content">' + content.replace(/</g, "&lt;").replace(/>/g, "&gt;") + '</p>';
+          html += '</div>';
+        }
+      }
+
+      html += '</div>';
+      resultEl.innerHTML = html;
+    }
+
     function getFormValues() {
       return {
         topic: document.getElementById("topic").value.trim(),
@@ -564,6 +647,8 @@
           setStatus("生成失败");
           setResult("Dify 返回了空内容。\n\n可能原因：\n1. API Key 权限不足\n2. Dify 应用未发布 API 访问\n3. 应用配额已用完\n4. 模型配置有误\n\n请打开浏览器开发者工具 (F12) -> Console 查看详细日志。");
         } else {
+          var rawText = resultEl.textContent;
+          parseAndRenderCards(rawText);
           setStatus("生成完成");
         }
       } catch (error) {
