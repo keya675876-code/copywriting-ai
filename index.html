@@ -539,6 +539,17 @@
       resultEl.textContent = text;
     }
 
+    function formatErrorMessage(errorMsg) {
+      var lowerMsg = errorMsg.toLowerCase();
+      if (lowerMsg.indexOf("503") !== -1 || 
+          lowerMsg.indexOf("unavailable") !== -1 || 
+          lowerMsg.indexOf("high demand") !== -1 || 
+          lowerMsg.indexOf("temporarily unavailable") !== -1) {
+        return "当前 AI 服务较忙，请稍后再试或点击重新生成。";
+      }
+      return errorMsg;
+    }
+
     function parseAndRenderCards(rawText) {
       var cardTitles = ["【爆款标题】", "【正文文案】", "【开头钩子】", "【CTA 行动引导】", "【Hashtags】", "【配图/视频建议】"];
       var hasMatch = false;
@@ -742,7 +753,8 @@
       } catch (error) {
         console.error("Dify API 错误:", error);
         setStatus("生成失败");
-        setResult("请求失败：\n" + error.message + "\n\n排查建议：\n1. 确认 API Key 是否正确\n2. 确认 Dify 应用已「发布」并开启 API 访问\n3. 如提示 goal 等字段值不合法，请到 Dify 后台将该变量改为「文本」类型或添加对应选项\n4. 确认使用 Live Server 而非 file:// 打开\n5. Agent Chat App 必须使用 streaming 模式");
+        var errorMsg = formatErrorMessage(error.message);
+        setResult("请求失败：\n" + errorMsg + "\n\n排查建议：\n1. 确认 API Key 是否正确\n2. 确认 Dify 应用已「发布」并开启 API 访问\n3. 如提示 goal 等字段值不合法，请到 Dify 后台将该变量改为「文本」类型或添加对应选项\n4. 确认使用 Live Server 而非 file:// 打开\n5. Agent Chat App 必须使用 streaming 模式");
       } finally {
         generateBtn.disabled = false;
         generateBtn.textContent = "生成文案";
@@ -799,7 +811,8 @@
       } catch (error) {
         console.error("Dify API 错误:", error);
         setStatus("重新生成失败");
-        setResult("请求失败：\n" + error.message + "\n\n排查建议：\n1. 确认 API Key 是否正确\n2. 确认 Dify 应用已「发布」并开启 API 访问\n3. 如提示 goal 等字段值不合法，请到 Dify 后台将该变量改为「文本」类型或添加对应选项\n4. 确认使用 Live Server 而非 file:// 打开\n5. Agent Chat App 必须使用 streaming 模式");
+        var errorMsg = formatErrorMessage(error.message);
+        setResult("请求失败：\n" + errorMsg + "\n\n排查建议：\n1. 确认 API Key 是否正确\n2. 确认 Dify 应用已「发布」并开启 API 访问\n3. 如提示 goal 等字段值不合法，请到 Dify 后台将该变量改为「文本」类型或添加对应选项\n4. 确认使用 Live Server 而非 file:// 打开\n5. Agent Chat App 必须使用 streaming 模式");
       } finally {
         generateBtn.disabled = false;
         generateBtn.textContent = "生成文案";
